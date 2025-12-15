@@ -116,7 +116,6 @@ const result = chain(ok(10))
 | Method | Description |
 |--------|-------------|
 | `isOk()` | Returns `true` if Ok |
-| `isErr()` | Returns `true` if Err |
 | `value` | Gets the value (throws if Err) |
 | `error` | Gets the error (throws if Ok) |
 | `map(fn)` | Transform the Ok value |
@@ -288,7 +287,6 @@ const result = chainOption(some(10))
 | Method | Description |
 |--------|-------------|
 | `isSome()` | Returns `true` if Some |
-| `isNone()` | Returns `true` if None |
 | `value` | Gets the value (throws if None) |
 | `map(fn)` | Transform the Some value |
 | `flatMap(fn)` | Chain with a function returning Option |
