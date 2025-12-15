@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { chainOption, isSome, none, some } from "../src/option.js";
+import { isSome, none, Option, some } from "../src/option.js";
 import {
-  chain,
   collectStream,
   collectStreamAll,
   err,
@@ -95,18 +94,6 @@ describe("Result edge cases", () => {
         }
       }
     });
-
-    it("flattens nested Results via chain", () => {
-      const nested = ok(ok(42));
-      const flattened = chain(nested).flatten();
-      assert.equal(flattened.value, 42);
-    });
-
-    it("flattens nested Err", () => {
-      const nested = ok(err("inner error"));
-      const flattened = chain(nested).flatten();
-      assert.equal(flattened.error, "inner error");
-    });
   });
 
   describe("Result.collect edge cases", () => {
@@ -178,6 +165,21 @@ describe("Result edge cases", () => {
       const { ok: oks, err: errs } = Result.partition([err("a"), err("b")]);
       assert.deepEqual(oks, []);
       assert.deepEqual(errs, ["a", "b"]);
+    });
+  });
+
+  describe("Result.okOr edge cases", () => {
+    it("handles falsy Ok values", () => {
+      assert.equal(Result.okOr(ok(0), 99), 0);
+      assert.equal(Result.okOr(ok(false), true), false);
+      assert.equal(Result.okOr(ok(""), "default"), "");
+      assert.equal(Result.okOr(ok(null), "default"), null);
+    });
+
+    it("handles falsy default values", () => {
+      assert.equal(Result.okOr(err("error"), 0), 0);
+      assert.equal(Result.okOr(err("error"), false), false);
+      assert.equal(Result.okOr(err("error"), ""), "");
     });
   });
 
@@ -256,55 +258,6 @@ describe("Result edge cases", () => {
         assert.ok(result.error instanceof Error);
         assert.equal(result.error.message, "123");
       }
-    });
-  });
-
-  describe("ResultChain long chains", () => {
-    it("chains multiple map operations", () => {
-      const result = chain(ok(1))
-        .map((x) => x + 1)
-        .map((x) => x * 2)
-        .map((x) => x.toString())
-        .map((x) => `${x}!`)
-        .toResult();
-
-      assert.equal(isOk(result), true);
-      if (isOk(result)) {
-        assert.equal(result.value, "4!");
-      }
-    });
-
-    it("short-circuits on first Err in chain", () => {
-      let mapCalled = false;
-      const result = chain(ok(1))
-        .map((x) => x + 1)
-        .flatMap(() => err("stopped"))
-        .map(() => {
-          mapCalled = true;
-          return 999;
-        })
-        .toResult();
-
-      assert.equal(!isOk(result), true);
-      assert.equal(mapCalled, false);
-    });
-
-    it("chains map and mapErr", () => {
-      const okResult = chain(ok(10))
-        .map((x) => x * 2)
-        .mapErr((e) => `Error: ${e}`)
-        .toResult();
-
-      const errResult = chain(err<number, string>("failed"))
-        .map((x) => x * 2)
-        .mapErr((e) => `Error: ${e}`)
-        .toResult();
-
-      assert.equal(isOk(okResult), true);
-      if (isOk(okResult)) assert.equal(okResult.value, 20);
-
-      assert.equal(!isOk(errResult), true);
-      if (!isOk(errResult)) assert.equal(errResult.error, "Error: failed");
     });
   });
 
@@ -406,89 +359,26 @@ describe("Option edge cases", () => {
         }
       }
     });
+  });
 
-    it("flattens nested Options via chain", () => {
-      const nested = some(some(42));
-      const flattened = chainOption(nested).flatten();
-      assert.equal(flattened.value, 42);
+  describe("Option.someOr edge cases", () => {
+    it("handles falsy Some values", () => {
+      assert.equal(Option.someOr(some(0), 99), 0);
+      assert.equal(Option.someOr(some(false), true), false);
+      assert.equal(Option.someOr(some(""), "default"), "");
+      assert.equal(Option.someOr(some(null), "default"), null);
     });
 
-    it("flattens nested None", () => {
-      const nested = some(none<number>());
-      const flattened = chainOption(nested).flatten();
-      assert.equal(flattened.isNone(), true);
-    });
-
-    it("outer None stays None", () => {
-      const nested = none<typeof some<number>>();
-      // Can't flatten outer None easily, but map should pass through
-      const result = chainOption(nested).map((inner) => inner);
-      assert.equal(result.isNone(), true);
+    it("handles falsy default values", () => {
+      assert.equal(Option.someOr(none<number>(), 0), 0);
+      assert.equal(Option.someOr(none<boolean>(), false), false);
+      assert.equal(Option.someOr(none<string>(), ""), "");
     });
   });
 
-  describe("filter edge cases", () => {
-    it("filter with always-true predicate", () => {
-      const result = chainOption(some(42)).filter(() => true);
-      assert.equal(result.value, 42);
-    });
-
-    it("filter with always-false predicate", () => {
-      const result = chainOption(some(42)).filter(() => false);
-      assert.equal(result.isNone(), true);
-    });
-
-    it("multiple filters", () => {
-      const result = chainOption(some(10))
-        .filter((x) => x > 5)
-        .filter((x) => x < 15)
-        .filter((x) => x % 2 === 0);
-      assert.equal(result.value, 10);
-    });
-
-    it("filter fails mid-chain", () => {
-      const result = chainOption(some(10))
-        .filter((x) => x > 5)
-        .filter((x) => x > 100) // fails here
-        .filter((x) => x % 2 === 0);
-      assert.equal(result.isNone(), true);
-    });
-  });
-
-  describe("OptionChain long chains", () => {
-    it("chains multiple map operations", () => {
-      const result = chainOption(some(1))
-        .map((x) => x + 1)
-        .map((x) => x * 2)
-        .map((x) => x.toString())
-        .map((x) => `${x}!`)
-        .toOption();
-
-      assert.equal(isSome(result), true);
-      if (isSome(result)) {
-        assert.equal(result.value, "4!");
-      }
-    });
-
-    it("short-circuits on None in chain", () => {
-      let mapCalled = false;
-      const result = chainOption(some(1))
-        .map((x) => x + 1)
-        .flatMap(() => none<number>())
-        .map(() => {
-          mapCalled = true;
-          return 999;
-        })
-        .toOption();
-
-      assert.equal(!isSome(result), true);
-      assert.equal(mapCalled, false);
-    });
-  });
-
-  describe("Option to Result conversion edge cases", () => {
+  describe("Option.toResult edge cases", () => {
     it("converts Some(undefined) to Ok(undefined)", () => {
-      const result = chainOption(some(undefined)).toResult("error");
+      const result = Option.toResult(some(undefined), "error");
       assert.equal(isOk(result), true);
       if (isOk(result)) {
         assert.equal(result.value, undefined);
@@ -496,7 +386,7 @@ describe("Option edge cases", () => {
     });
 
     it("converts Some(null) to Ok(null)", () => {
-      const result = chainOption(some(null)).toResult("error");
+      const result = Option.toResult(some(null), "error");
       assert.equal(isOk(result), true);
       if (isOk(result)) {
         assert.equal(result.value, null);
@@ -504,46 +394,11 @@ describe("Option edge cases", () => {
     });
 
     it("converts None to Err with falsy error", () => {
-      const result = chainOption(none()).toResult(0);
+      const result = Option.toResult(none(), 0);
       assert.equal(!isOk(result), true);
       if (!isOk(result)) {
         assert.equal(result.error, 0);
       }
-    });
-  });
-
-  describe("unwrap edge cases", () => {
-    it("unwrapOr with falsy default (0)", () => {
-      assert.equal(chainOption(none<number>()).unwrapOr(0), 0);
-      assert.equal(chainOption(some(5)).unwrapOr(0), 5);
-    });
-
-    it("unwrapOr with falsy default (empty string)", () => {
-      assert.equal(chainOption(none<string>()).unwrapOr(""), "");
-      assert.equal(chainOption(some("hello")).unwrapOr(""), "hello");
-    });
-
-    it("unwrapOr with falsy default (false)", () => {
-      assert.equal(chainOption(none<boolean>()).unwrapOr(false), false);
-      assert.equal(chainOption(some(true)).unwrapOr(false), true);
-    });
-
-    it("unwrapOrElse is not called for Some", () => {
-      let called = false;
-      chainOption(some(42)).unwrapOrElse(() => {
-        called = true;
-        return 0;
-      });
-      assert.equal(called, false);
-    });
-
-    it("unwrapOrElse is called for None", () => {
-      let called = false;
-      chainOption(none<number>()).unwrapOrElse(() => {
-        called = true;
-        return 0;
-      });
-      assert.equal(called, true);
     });
   });
 });

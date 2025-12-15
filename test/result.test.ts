@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  chain,
   collectStream,
   collectStreamAll,
   err,
@@ -44,168 +43,22 @@ describe("Type guards", () => {
   });
 });
 
-describe("ResultChain", () => {
-  describe("isOk/isErr", () => {
-    it("isOk() returns true for Ok", () => {
-      assert.equal(chain(ok(42)).isOk(), true);
-      assert.equal(chain(ok(42)).isErr(), false);
-    });
-
-    it("isErr() returns true for Err", () => {
-      assert.equal(chain(err("error")).isErr(), true);
-      assert.equal(chain(err("error")).isOk(), false);
-    });
-  });
-
-  describe("accessors", () => {
-    it("value accessor returns value for Ok", () => {
-      assert.equal(chain(ok(42)).value, 42);
-    });
-
-    it("value accessor throws for Err", () => {
-      assert.throws(() => chain(err("error")).value, /Cannot access value on Err/);
-    });
-
-    it("error accessor returns error for Err", () => {
-      assert.equal(chain(err("error")).error, "error");
-    });
-
-    it("error accessor throws for Ok", () => {
-      assert.throws(() => chain(ok(42)).error, /Cannot access error on Ok/);
-    });
-  });
-
-  describe("map", () => {
-    it("transforms Ok value", () => {
-      const result = chain(ok(2)).map((x) => x * 3);
-      assert.equal(result.value, 6);
-    });
-
-    it("passes through Err", () => {
-      const result = chain(err<number, string>("error")).map((x) => x * 3);
-      assert.equal(result.error, "error");
-    });
-  });
-
-  describe("mapErr", () => {
-    it("transforms Err value", () => {
-      const result = chain(err("error")).mapErr((e) => e.toUpperCase());
-      assert.equal(result.error, "ERROR");
-    });
-
-    it("passes through Ok", () => {
-      const result = chain(ok(42)).mapErr((e) => e.toString().toUpperCase());
-      assert.equal(result.value, 42);
-    });
-  });
-
-  describe("flatMap", () => {
-    it("chains Ok results", () => {
-      const result = chain(ok(2)).flatMap((x) => ok(x * 3));
-      assert.equal(result.value, 6);
-    });
-
-    it("returns first Err", () => {
-      const result = chain(ok(2)).flatMap(() => err("error"));
-      assert.equal(result.error, "error");
-    });
-
-    it("passes through initial Err", () => {
-      const result = chain(err<number, string>("initial")).flatMap((x) => ok(x * 3));
-      assert.equal(result.error, "initial");
-    });
-  });
-
-  describe("unwrap methods", () => {
-    it("unwrap() returns value for Ok", () => {
-      assert.equal(chain(ok(42)).unwrap(), 42);
-    });
-
-    it("unwrap() throws error for Err", () => {
-      assert.throws(() => chain(err(new Error("boom"))).unwrap(), /boom/);
-    });
-
-    it("unwrapOr() returns value for Ok", () => {
-      assert.equal(chain(ok(42)).unwrapOr(0), 42);
-    });
-
-    it("unwrapOr() returns default for Err", () => {
-      assert.equal(chain(err<number, string>("error")).unwrapOr(0), 0);
-    });
-
-    it("unwrapOrElse() returns value for Ok", () => {
-      assert.equal(
-        chain(ok(42)).unwrapOrElse(() => 0),
-        42,
-      );
-    });
-
-    it("unwrapOrElse() calls fn for Err", () => {
-      assert.equal(
-        chain(err<number, string>("error")).unwrapOrElse((e) => e.length),
-        5,
-      );
-    });
-
-    it("unwrapErr() returns error for Err", () => {
-      assert.equal(chain(err("error")).unwrapErr(), "error");
-    });
-
-    it("unwrapErr() throws for Ok", () => {
-      assert.throws(() => chain(ok(42)).unwrapErr(), /Called unwrapErr on Ok/);
-    });
-  });
-
-  describe("match", () => {
-    it("calls ok arm for Ok", () => {
-      const result = chain(ok(42)).match({
-        ok: (v) => `value: ${v}`,
-        err: (e) => `error: ${e}`,
-      });
-      assert.equal(result, "value: 42");
-    });
-
-    it("calls err arm for Err", () => {
-      const result = chain(err("boom")).match({
-        ok: (v) => `value: ${v}`,
-        err: (e) => `error: ${e}`,
-      });
-      assert.equal(result, "error: boom");
-    });
-  });
-
-  describe("and/or combinators", () => {
-    it("and() returns other for Ok", () => {
-      const result = chain(ok(1)).and(ok(2));
-      assert.equal(result.value, 2);
-    });
-
-    it("and() returns self for Err", () => {
-      const result = chain(err<number, string>("error")).and(ok(2));
-      assert.equal(result.error, "error");
-    });
-
-    it("or() returns self for Ok", () => {
-      const result = chain(ok(1)).or(ok(2));
-      assert.equal(result.value, 1);
-    });
-
-    it("or() returns other for Err", () => {
-      const result = chain(err<number, string>("error")).or(ok(2));
-      assert.equal(result.value, 2);
-    });
-  });
-
-  describe("toResult", () => {
-    it("returns plain Result", () => {
-      const plain = chain(ok(42)).toResult();
-      assert.equal(plain.ok, true);
-      if (plain.ok) assert.equal(plain.value, 42);
-    });
-  });
-});
-
 describe("Result namespace", () => {
+  describe("okOr", () => {
+    it("returns value for Ok", () => {
+      assert.equal(Result.okOr(ok(42), 0), 42);
+    });
+
+    it("returns default for Err", () => {
+      assert.equal(Result.okOr(err("error"), 0), 0);
+    });
+
+    it("returns different type default", () => {
+      const result = Result.okOr(err("error"), "default");
+      assert.equal(result, "default");
+    });
+  });
+
   describe("collect", () => {
     it("collects all Ok values", () => {
       const result = Result.collect([ok(1), ok(2), ok(3)]);
