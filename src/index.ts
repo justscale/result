@@ -1,19 +1,17 @@
-// Result
-
 // Option
 export {
-  chainOption,
   isSome,
   type None,
   none,
   type Option,
-  OptionChain,
+  Option as OptionNS,
   type Some,
   some,
 } from "./option.js";
+
+// Result
 export {
   type Accumulated,
-  chain,
   collectStream,
   collectStreamAll,
   type Err,
@@ -23,7 +21,6 @@ export {
   ok,
   type Result,
   Result as ResultNS,
-  ResultChain,
   type ResultStream,
   takeUntilErr,
 } from "./result.js";

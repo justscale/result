@@ -1,4 +1,4 @@
-import { err, ok, type Result, ResultChain } from "./result.js";
+import { err, ok, type Result } from "./result.js";
 
 // ============================================================================
 // Phantom Brands (compile-time only, not present at runtime)
@@ -51,127 +51,21 @@ export function isSome<T>(option: Option<T>): option is Some<T> {
 }
 
 // ============================================================================
-// OptionChain - Wrapper class for method chaining
+// Option Namespace
 // ============================================================================
 
-export class OptionChain<T> {
-  readonly #data: Option<T>;
-
-  private constructor(data: Option<T>) {
-    this.#data = data;
-  }
+export const Option = {
+  /**
+   * Get the value from an Option, or return a default if None.
+   */
+  someOr<T, U>(option: Option<T>, defaultValue: U): T | U {
+    return isSome(option) ? option.value : defaultValue;
+  },
 
   /**
-   * Wrap a plain Option for method chaining.
+   * Convert an Option to a Result.
    */
-  static from<T>(option: Option<T>): OptionChain<T> {
-    return new OptionChain(option);
-  }
-
-  /**
-   * Unwrap back to plain Option.
-   */
-  toOption(): Option<T> {
-    return this.#data;
-  }
-
-  // -------------------------------------------------------------------------
-  // Type Guards
-  // -------------------------------------------------------------------------
-
-  isSome(): boolean {
-    return this.#data.some;
-  }
-
-  // -------------------------------------------------------------------------
-  // Accessors
-  // -------------------------------------------------------------------------
-
-  get value(): T {
-    if (!this.#data.some) {
-      throw new Error("Cannot access value on None");
-    }
-    return this.#data.value;
-  }
-
-  // -------------------------------------------------------------------------
-  // Transformations
-  // -------------------------------------------------------------------------
-
-  map<U>(fn: (t: T) => U): OptionChain<U> {
-    return this.#data.some
-      ? OptionChain.from(some(fn(this.#data.value)))
-      : (this as unknown as OptionChain<U>);
-  }
-
-  flatMap<U>(fn: (t: T) => Option<U>): OptionChain<U> {
-    return this.#data.some
-      ? OptionChain.from(fn(this.#data.value))
-      : (this as unknown as OptionChain<U>);
-  }
-
-  flatten<U>(this: OptionChain<Option<U>>): OptionChain<U> {
-    return this.flatMap((inner) => inner);
-  }
-
-  filter(predicate: (t: T) => boolean): OptionChain<T> {
-    return this.#data.some && predicate(this.#data.value) ? this : OptionChain.from(none());
-  }
-
-  // -------------------------------------------------------------------------
-  // Unwrapping
-  // -------------------------------------------------------------------------
-
-  unwrap(): T {
-    if (this.#data.some) return this.#data.value;
-    throw new Error("Attempted to unwrap None");
-  }
-
-  unwrapOr(defaultValue: T): T {
-    return this.#data.some ? this.#data.value : defaultValue;
-  }
-
-  unwrapOrElse(fn: () => T): T {
-    return this.#data.some ? this.#data.value : fn();
-  }
-
-  // -------------------------------------------------------------------------
-  // Pattern Matching
-  // -------------------------------------------------------------------------
-
-  match<R>(arms: { some: (value: T) => R; none: () => R }): R {
-    return this.#data.some ? arms.some(this.#data.value) : arms.none();
-  }
-
-  // -------------------------------------------------------------------------
-  // Combinators
-  // -------------------------------------------------------------------------
-
-  or(other: Option<T>): OptionChain<T> {
-    return this.#data.some ? this : OptionChain.from(other);
-  }
-
-  and<U>(other: Option<U>): OptionChain<U> {
-    return this.#data.some ? OptionChain.from(other) : (this as unknown as OptionChain<U>);
-  }
-
-  // -------------------------------------------------------------------------
-  // Conversion
-  // -------------------------------------------------------------------------
-
-  toResult<E>(error: E): Result<T, E> {
-    return this.#data.some ? ok(this.#data.value) : err(error);
-  }
-
-  toResultChain<E>(error: E): ResultChain<T, E> {
-    return ResultChain.from(this.toResult(error));
-  }
-}
-
-// ============================================================================
-// Convenience: wrap for chaining
-// ============================================================================
-
-export function chainOption<T>(option: Option<T>): OptionChain<T> {
-  return OptionChain.from(option);
-}
+  toResult<T, E>(option: Option<T>, error: E): Result<T, E> {
+    return isSome(option) ? ok(option.value) : err(error);
+  },
+} as const;

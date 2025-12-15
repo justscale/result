@@ -5,7 +5,6 @@ A lightweight, type-safe Result and Option implementation for TypeScript.
 ## Features
 
 - **Plain branded objects** - `ok()` and `err()` return lightweight, JSON-serializable objects
-- **Optional wrapper for chaining** - `chain(result)` wraps for `.map()`, `.flatMap()`, etc.
 - **Phantom type brands** - Compile-time safety without runtime overhead
 - **Both fail-fast and accumulating collect** - with compile-time type distinction (`Accumulated<E>`)
 - **Generator/stream support** - `ResultStream<T, E>` for async iteration
@@ -24,7 +23,7 @@ yarn add @justscale/result
 ## Quick Start
 
 ```typescript
-import { ok, err, isOk, chain, Result } from "@justscale/result";
+import { ok, err, isOk, Result } from "@justscale/result";
 
 // Create results
 const success = ok(42);
@@ -39,12 +38,8 @@ if (!isOk(failure)) {
   console.log(failure.error); // "something went wrong"
 }
 
-// Chain operations
-const result = chain(ok(10))
-  .map((x) => x * 2)
-  .map((x) => x.toString())
-  .toResult();
-// { ok: true, value: "20" }
+// Get value with default
+const value = Result.okOr(failure, 0); // 0
 ```
 
 ## API Reference
@@ -97,43 +92,21 @@ if (isOk(result)) {
 
 > **Note:** There is no `isErr` function. Use `!isOk(result)` instead.
 
-### ResultChain
-
-Wrap a plain `Result` for fluent method chaining:
-
-```typescript
-import { chain, ok, err } from "@justscale/result";
-
-const result = chain(ok(10))
-  .map((x) => x * 2)
-  .flatMap((x) => (x > 15 ? ok(x) : err("too small")))
-  .mapErr((e) => new Error(e))
-  .toResult();
-```
-
-#### Methods
-
-| Method | Description |
-|--------|-------------|
-| `isOk()` | Returns `true` if Ok |
-| `value` | Gets the value (throws if Err) |
-| `error` | Gets the error (throws if Ok) |
-| `map(fn)` | Transform the Ok value |
-| `mapErr(fn)` | Transform the Err value |
-| `flatMap(fn)` | Chain with a function returning Result |
-| `flatten()` | Flatten nested Result |
-| `unwrap()` | Get value or throw error |
-| `unwrapOr(default)` | Get value or return default |
-| `unwrapOrElse(fn)` | Get value or compute default |
-| `unwrapErr()` | Get error or throw |
-| `match({ ok, err })` | Pattern match on Ok/Err |
-| `and(other)` | Return other if Ok, else self |
-| `or(other)` | Return self if Ok, else other |
-| `toResult()` | Unwrap back to plain Result |
-
 ### Result Namespace
 
-Static utility functions for working with collections of Results.
+Static utility functions for working with Results.
+
+#### `Result.okOr<T, E, U>(result: Result<T, E>, defaultValue: U): T | U`
+
+Get the value from a Result, or return a default if Err.
+
+```typescript
+const success = ok(42);
+const failure = err("error");
+
+Result.okOr(success, 0); // 42
+Result.okOr(failure, 0); // 0
+```
 
 #### `Result.collect<T, E>(results: Result<T, E>[]): Result<T[], E>`
 
@@ -271,46 +244,30 @@ if (isSome(option)) {
 
 > **Note:** There is no `isNone` function. Use `!isSome(option)` instead.
 
-### OptionChain
+### Option Namespace
+
+Static utility functions for working with Options.
+
+#### `Option.someOr<T, U>(option: Option<T>, defaultValue: U): T | U`
+
+Get the value from an Option, or return a default if None.
 
 ```typescript
-import { chainOption, some, none } from "@justscale/result";
+const present = some(42);
+const absent = none<number>();
 
-const result = chainOption(some(10))
-  .map((x) => x * 2)
-  .filter((x) => x > 15)
-  .toOption();
+Option.someOr(present, 0); // 42
+Option.someOr(absent, 0);  // 0
 ```
 
-#### Methods
+#### `Option.toResult<T, E>(option: Option<T>, error: E): Result<T, E>`
 
-| Method | Description |
-|--------|-------------|
-| `isSome()` | Returns `true` if Some |
-| `value` | Gets the value (throws if None) |
-| `map(fn)` | Transform the Some value |
-| `flatMap(fn)` | Chain with a function returning Option |
-| `flatten()` | Flatten nested Option |
-| `filter(predicate)` | Keep Some only if predicate passes |
-| `unwrap()` | Get value or throw |
-| `unwrapOr(default)` | Get value or return default |
-| `unwrapOrElse(fn)` | Get value or compute default |
-| `match({ some, none })` | Pattern match on Some/None |
-| `and(other)` | Return other if Some, else self |
-| `or(other)` | Return self if Some, else other |
-| `toResult(error)` | Convert to Result |
-| `toResultChain(error)` | Convert to ResultChain |
-| `toOption()` | Unwrap back to plain Option |
-
-### Converting Option to Result
+Convert an Option to a Result.
 
 ```typescript
 const token: Option<string> = getAuthToken();
-
-const result = chainOption(token)
-  .filter((t) => t.length > 0)
-  .toResult("Missing or invalid token");
-// Result<string, string>
+const result = Option.toResult(token, "Missing token");
+// Ok<string> if Some, Err<"Missing token"> if None
 ```
 
 ---
@@ -332,26 +289,6 @@ const b = { ok: true, value: 42 } as Ok<number>;
 JSON.stringify(a) === JSON.stringify(b); // true
 ```
 
-### Opt-in Chaining
-
-The chainable wrapper is opt-in. Use plain objects with type guards for simple cases:
-
-```typescript
-// Simple - no wrapper needed
-const result = await fetchUser(id);
-if (!isOk(result)) {
-  return err(result.error);
-}
-const user = result.value;
-
-// Complex - use chain for readability
-const processed = chain(await fetchUser(id))
-  .map((user) => user.posts)
-  .flatMap((posts) => validatePosts(posts))
-  .map((posts) => posts.slice(0, 10))
-  .toResult();
-```
-
 ### Type-Level Error Accumulation
 
 `Accumulated<E>` is branded at the type level to distinguish accumulated errors from single errors:
@@ -371,7 +308,7 @@ const accumulated: Result<User[], Accumulated<ValidationError>> = Result.collect
 ### API Request with Error Handling
 
 ```typescript
-import { ok, err, chain, Result } from "@justscale/result";
+import { ok, err, isOk, Result } from "@justscale/result";
 
 interface User {
   id: string;
@@ -398,16 +335,17 @@ async function fetchUser(id: string): Promise<Result<User, ApiError>> {
 // Usage
 const result = await fetchUser("123");
 
-chain(result).match({
-  ok: (user) => console.log(`Hello, ${user.name}!`),
-  err: (error) => console.error(`Error ${error.code}: ${error.message}`),
-});
+if (isOk(result)) {
+  console.log(`Hello, ${result.value.name}!`);
+} else {
+  console.error(`Error ${result.error.code}: ${result.error.message}`);
+}
 ```
 
 ### Form Validation
 
 ```typescript
-import { ok, err, Result } from "@justscale/result";
+import { ok, err, isOk, Result } from "@justscale/result";
 
 interface FormData {
   email: string;
@@ -447,7 +385,7 @@ function validateForm(data: FormData): Result<FormData, string[]> {
 ### Optional Configuration
 
 ```typescript
-import { some, none, chainOption, isSome, type Option } from "@justscale/result";
+import { some, none, isSome, Option } from "@justscale/result";
 
 interface Config {
   apiKey?: string;
@@ -466,10 +404,10 @@ function getConfig(): Option<Config> {
   }
 }
 
-const timeout = chainOption(getConfig())
-  .map((c) => c.timeout)
-  .filter((t): t is number => t !== undefined)
-  .unwrapOr(5000);
+const config = getConfig();
+const timeout = isSome(config) && config.value.timeout !== undefined
+  ? config.value.timeout
+  : 5000;
 ```
 
 ---

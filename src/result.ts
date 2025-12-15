@@ -47,136 +47,6 @@ export function isOk<T, E>(result: Result<T, E>): result is Ok<T> {
 }
 
 // ============================================================================
-// ResultChain - Wrapper class for method chaining
-// ============================================================================
-
-export class ResultChain<T, E> {
-  readonly #data: Result<T, E>;
-
-  private constructor(data: Result<T, E>) {
-    this.#data = data;
-  }
-
-  /**
-   * Wrap a plain Result for method chaining.
-   */
-  static from<T, E>(result: Result<T, E>): ResultChain<T, E> {
-    return new ResultChain(result);
-  }
-
-  /**
-   * Unwrap back to plain Result.
-   */
-  toResult(): Result<T, E> {
-    return this.#data;
-  }
-
-  // -------------------------------------------------------------------------
-  // Type Guards
-  // -------------------------------------------------------------------------
-
-  isOk(): boolean {
-    return this.#data.ok;
-  }
-
-  // -------------------------------------------------------------------------
-  // Accessors
-  // -------------------------------------------------------------------------
-
-  get value(): T {
-    if (!this.#data.ok) {
-      throw new Error("Cannot access value on Err");
-    }
-    return this.#data.value;
-  }
-
-  get error(): E {
-    if (this.#data.ok) {
-      throw new Error("Cannot access error on Ok");
-    }
-    return this.#data.error;
-  }
-
-  // -------------------------------------------------------------------------
-  // Transformations
-  // -------------------------------------------------------------------------
-
-  map<U>(fn: (t: T) => U): ResultChain<U, E> {
-    return this.#data.ok
-      ? ResultChain.from(ok(fn(this.#data.value)))
-      : (this as unknown as ResultChain<U, E>);
-  }
-
-  mapErr<F>(fn: (e: E) => F): ResultChain<T, F> {
-    return this.#data.ok
-      ? (this as unknown as ResultChain<T, F>)
-      : ResultChain.from(err(fn(this.#data.error)));
-  }
-
-  flatMap<U, F>(fn: (t: T) => Result<U, F>): ResultChain<U, E | F> {
-    return this.#data.ok
-      ? ResultChain.from(fn(this.#data.value))
-      : (this as unknown as ResultChain<U, E | F>);
-  }
-
-  flatten<U, F>(this: ResultChain<Result<U, F>, E>): ResultChain<U, E | F> {
-    return this.flatMap((inner) => inner);
-  }
-
-  // -------------------------------------------------------------------------
-  // Unwrapping
-  // -------------------------------------------------------------------------
-
-  unwrap(): T {
-    if (this.#data.ok) return this.#data.value;
-    throw this.#data.error;
-  }
-
-  unwrapOr(defaultValue: T): T {
-    return this.#data.ok ? this.#data.value : defaultValue;
-  }
-
-  unwrapOrElse(fn: (e: E) => T): T {
-    return this.#data.ok ? this.#data.value : fn(this.#data.error);
-  }
-
-  unwrapErr(): E {
-    if (!this.#data.ok) return this.#data.error;
-    throw new Error("Called unwrapErr on Ok");
-  }
-
-  // -------------------------------------------------------------------------
-  // Pattern Matching
-  // -------------------------------------------------------------------------
-
-  match<R>(arms: { ok: (value: T) => R; err: (error: E) => R }): R {
-    return this.#data.ok ? arms.ok(this.#data.value) : arms.err(this.#data.error);
-  }
-
-  // -------------------------------------------------------------------------
-  // Combinators
-  // -------------------------------------------------------------------------
-
-  and<U>(other: Result<U, E>): ResultChain<U, E> {
-    return this.#data.ok ? ResultChain.from(other) : (this as unknown as ResultChain<U, E>);
-  }
-
-  or<F>(other: Result<T, F>): ResultChain<T, E | F> {
-    return this.#data.ok
-      ? (this as unknown as ResultChain<T, E | F>)
-      : (ResultChain.from(other) as ResultChain<T, E | F>);
-  }
-}
-
-// ============================================================================
-// Convenience: wrap for chaining
-// ============================================================================
-
-export function chain<T, E>(result: Result<T, E>): ResultChain<T, E> {
-  return ResultChain.from(result);
-}
-
-// ============================================================================
 // Accumulated Error Type
 // ============================================================================
 
@@ -262,6 +132,13 @@ export const Result = {
     } catch (e) {
       return err(e instanceof Error ? e : new Error(String(e)));
     }
+  },
+
+  /**
+   * Get the value from a Result, or return a default if Err.
+   */
+  okOr<T, E, U>(result: Result<T, E>, defaultValue: U): T | U {
+    return isOk(result) ? result.value : defaultValue;
   },
 } as const;
 
