@@ -1,6 +1,6 @@
 {
   "name": "@justscale/result",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Lightweight, type-safe Result and Option implementation for TypeScript",
   "type": "module",
   "main": "./dist/index.js",
