@@ -1,0 +1,56 @@
+{
+  "name": "@justscale/result",
+  "version": "0.1.0",
+  "description": "Lightweight, type-safe Result and Option implementation for TypeScript",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "tsx --test test/**/*.test.ts",
+    "test:coverage": "tsx --test --experimental-test-coverage test/**/*.test.ts",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "pack:check": "pnpm pack"
+  },
+  "keywords": [
+    "result",
+    "option",
+    "maybe",
+    "either",
+    "functional",
+    "typescript",
+    "monads",
+    "error-handling"
+  ],
+  "author": "jaenster",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/justscale/result.git"
+  },
+  "bugs": {
+    "url": "https://github.com/justscale/result/issues"
+  },
+  "homepage": "https://github.com/justscale/result#readme",
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.8",
+    "@types/node": "^20.19.27",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@10.24.0"
+}
